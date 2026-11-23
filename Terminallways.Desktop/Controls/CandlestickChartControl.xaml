@@ -1,0 +1,115 @@
+﻿<UserControl x:Class="Terminallways.Desktop.Controls.CandlestickChartControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:local="clr-namespace:Terminallways.Desktop.Controls"
+             Background="#12141C"
+             SizeChanged="Control_SizeChanged">
+    <Grid>
+        <Grid.RowDefinitions>
+            <RowDefinition Height="*"/>
+            <RowDefinition Height="28"/>
+        </Grid.RowDefinitions>
+        <Grid.ColumnDefinitions>
+            <ColumnDefinition Width="*"/>
+            <ColumnDefinition Width="72"/>
+        </Grid.ColumnDefinitions>
+
+        <!-- Основной слой графика (свечи и сетка) -->
+        <Canvas x:Name="ChartCanvas"
+                Grid.Row="0" Grid.Column="0"
+                Background="#12141C" ClipToBounds="True"
+                MouseLeftButtonDown="ChartCanvas_MouseLeftButtonDown"
+                MouseLeftButtonUp="ChartCanvas_MouseLeftButtonUp"
+                MouseMove="ChartCanvas_MouseMove"
+                MouseWheel="ChartCanvas_MouseWheel"
+                MouseLeave="ChartCanvas_MouseLeave"/>
+
+        <!-- Лёгкий слой перекрестия (НЕ вызывает DrawChart) -->
+        <Canvas x:Name="CrosshairCanvas"
+                Grid.Row="0" Grid.Column="0"
+                ClipToBounds="True"
+                IsHitTestVisible="False">
+            <Line x:Name="CrosshairV" Visibility="Collapsed" StrokeThickness="1" SnapsToDevicePixels="True"/>
+            <Line x:Name="CrosshairH" Visibility="Collapsed" StrokeThickness="1" SnapsToDevicePixels="True"/>
+        </Canvas>
+
+        <!-- Информация о баре (сверху слева, заходит в зону выдвижного бара) -->
+        <Border x:Name="BarInfoPanel"
+                Grid.Row="0" Grid.Column="0"
+                HorizontalAlignment="Left" VerticalAlignment="Top"
+                Margin="10,8,0,0"
+                Padding="8,4"
+                Background="#CC141822"
+                BorderBrush="#252D3F"
+                BorderThickness="1"
+                CornerRadius="4"
+                IsHitTestVisible="False"
+                Visibility="Collapsed">
+            <TextBlock x:Name="BarInfoText"
+                       Foreground="#CBD5E1"
+                       FontFamily="Consolas"
+                       FontSize="12"/>
+        </Border>
+
+        <!-- Невидимая полоска у левого края для вызова панели инструментов -->
+        <Border x:Name="ToolbarTriggerZone"
+                Grid.Row="0" Grid.Column="0"
+                HorizontalAlignment="Left"
+                Width="12"
+                Background="Transparent"
+                MouseEnter="ToolbarZone_MouseEnter"
+                MouseLeave="ToolbarZone_MouseLeave"/>
+
+        <!-- Выезжающий бар инструментов слева -->
+        <local:ChartToolbarControl x:Name="ToolBar"
+                                   Grid.Row="0" Grid.Column="0"
+                                   HorizontalAlignment="Left"
+                                   VerticalAlignment="Top"
+                                   Margin="8,38,0,0"
+                                   Opacity="0"
+                                   IsHitTestVisible="False"
+                                   MouseEnter="ToolbarZone_MouseEnter"
+                                   MouseLeave="ToolbarZone_MouseLeave">
+            <local:ChartToolbarControl.RenderTransform>
+                <TranslateTransform X="-46"/>
+            </local:ChartToolbarControl.RenderTransform>
+        </local:ChartToolbarControl>
+
+        <!-- Шкала цен + лёгкий слой плашки цены перекрестия -->
+        <Canvas x:Name="PriceAxisCanvas"
+                Grid.Row="0" Grid.Column="1"
+                Background="#181C26" ClipToBounds="True"
+                Cursor="SizeNS"
+                MouseLeftButtonDown="PriceAxis_MouseLeftButtonDown"
+                MouseLeftButtonUp="PriceAxis_MouseLeftButtonUp"
+                MouseMove="PriceAxis_MouseMove"
+                MouseLeave="PriceAxis_MouseLeave"/>
+
+        <Canvas x:Name="PriceOverlayCanvas"
+                Grid.Row="0" Grid.Column="1"
+                ClipToBounds="True"
+                IsHitTestVisible="False">
+            <Border x:Name="CrosshairPriceTag" Visibility="Collapsed" CornerRadius="2" Padding="5,1">
+                <TextBlock x:Name="CrosshairPriceText" FontFamily="Consolas" FontSize="11"/>
+            </Border>
+        </Canvas>
+
+        <!-- Шкала времени + лёгкий слой плашки времени перекрестия -->
+        <Canvas x:Name="DateAxisCanvas"
+                Grid.Row="1" Grid.Column="0"
+                Background="#181C26" ClipToBounds="True"/>
+
+        <Canvas x:Name="DateOverlayCanvas"
+                Grid.Row="1" Grid.Column="0"
+                ClipToBounds="True"
+                IsHitTestVisible="False">
+            <Border x:Name="CrosshairDateTag" Visibility="Collapsed" CornerRadius="2" Padding="6,2">
+                <TextBlock x:Name="CrosshairDateText" FontFamily="Consolas" FontSize="11"/>
+            </Border>
+        </Canvas>
+
+        <Border Grid.Row="1" Grid.Column="1"
+                Background="#181C26"
+                BorderBrush="#252B3B" BorderThickness="1,1,0,0"/>
+    </Grid>
+</UserControl>

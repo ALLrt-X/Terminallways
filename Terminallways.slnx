@@ -1,0 +1,4 @@
+<Solution>
+  <Project Path="Terminallways.Core/Terminallways.Core.csproj" />
+  <Project Path="Terminallways.Desktop/Terminallways.Desktop.csproj" />
+</Solution>
