@@ -19,6 +19,7 @@
                           VerticalContentAlignment="Center" SelectionChanged="TickerBox_SelectionChanged">
                     <ComboBoxItem Content="SMLT"/>
                     <ComboBoxItem Content="CBOM"/>
+                    <ComboBoxItem Content="SBER"/>
                 </ComboBox>
 
                 <!-- Переключатели таймфрейма -->

@@ -44,6 +44,9 @@ public partial class MainWindow : Window
 
         _feed = new LiveCandleFeed(_provider);
 
+        // Время обновления графика (дефолт = TimeSpan.FromSeconds(1))
+        // Дополнительно в UpdateSessionIndicator, также заменять данный параметр
+        // Для использования миллисекунд: TimeSpan.FromMilliseconds
         _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
         _timer.Tick += async (_, _) => await RefreshTailAsync();
 
@@ -271,6 +274,8 @@ public partial class MainWindow : Window
 
         var desiredInterval = info.Status == MarketSessionStatus.Closed
             ? TimeSpan.FromSeconds(30)
+            // Верхняя пинг (30 секунд дефолт) если долго нету ответа. Оптимизация пинга.
+            // Дополнительная настройка, таймер принудительно чекает каждые (3 секунды - дефолт) когда сессия активна
             : TimeSpan.FromSeconds(3);
 
         if (_timer.Interval != desiredInterval)
