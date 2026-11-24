@@ -1,10 +1,13 @@
-﻿using System.Windows;
+﻿using System.Timers;
+using System.Windows;
 using System.Windows.Controls;
 using System.Windows.Media;
 using System.Windows.Threading;
 using Terminallways.Core.Data;
 using Terminallways.Core.Indicators;
 using Terminallways.Core.Models;
+using Terminallways.Desktop.Settings;
+using System.Windows.Input;
 
 namespace Terminallways.Desktop;
 
@@ -26,8 +29,11 @@ public partial class MainWindow : Window
 
     // Добавка для TimeframeSpec.cs
     private TimeframeSpec _currentTf = TimeframeSpec.Presets["3M"];
-    private int _loadedMoexInterval = -1;
-    
+
+    // Удалено после фикса 1ч, 1д таймфрейма. Переработан метод работы сессии.
+    //private int _loadedMoexInterval = -1; // Вместо него ниже: 
+    private readonly Dictionary<string, IReadOnlyList<Candle>> _historyCache = new();
+
 
     private bool _useHeikinAshi = true;
     private bool _isReady;
@@ -35,20 +41,53 @@ public partial class MainWindow : Window
     // Проверка, включен ли режим обновления (x сек обновления и тп)
     private bool IsAutoEnabled => ChkAuto.IsChecked == true;
 
+    // Добавка Burn
+    private double _normalRefreshSeconds = 3.0;
+    private double _burnRefreshSeconds = 1.0;
+    private bool _isBurnMode;
+
+    // Добавка настроек терминала
+    private readonly AppSettings _settings;
+
+    // Конструктор MainWindow()
     public MainWindow()
     {
         InitializeComponent();
 
+        // Подписка StateChanged, для компенсации отсутпа в развёрнутом окне
+        StateChanged += (_, _) => UpdateWindowChromeState();
+        UpdateWindowChromeState();
+
         // Подписка на авто-отключение кнопки при ручном перетаскивании
         ChartControl.AutoScaleChanged += isAuto => BtnAutoScale.IsChecked = isAuto;
+
+        // Добавка Burn
+        ChartControl.BurnModeToggled += OnBurnModeToggled;
+        UpdateAutoCheckBoxLabel();
 
         _feed = new LiveCandleFeed(_provider);
 
         // Время обновления графика (дефолт = TimeSpan.FromSeconds(1))
         // Дополнительно в UpdateSessionIndicator, также заменять данный параметр
-        // Для использования миллисекунд: TimeSpan.FromMilliseconds
-        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        // Для использования миллисекунд: с FromSeconds на TimeSpan.FromMilliseconds = 500
+        // 250 мс = 488 B/s
+        // 3 с = 122 B/s
+
+        //_timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(3) };
+        // Добавка Burn
+        _timer = new DispatcherTimer { Interval = TimeSpan.FromSeconds(_normalRefreshSeconds) };
+
         _timer.Tick += async (_, _) => await RefreshTailAsync();
+
+        // Добавка настроек терминала
+        _settings = AppSettings.Load();
+        SettingsOverlay.BindSettings(_settings);
+        SettingsOverlay.SettingsChanged += ApplySettings;
+
+        ChartControl.SettingsRequested += () =>
+            SettingsOverlay.Toggle(RootGrid.ActualWidth, RootGrid.ActualHeight);
+
+        ApplySettings(_settings);
 
         Loaded += async (_, _) =>
         {
@@ -63,23 +102,27 @@ public partial class MainWindow : Window
     {
         _timer.Stop();
         BtnReload.IsEnabled = false;
-        StatusText.Text = $"Загружаю базу {CurrentTicker} ({_currentTf.Code}, {_currentTf.DaysBack} дн.)...";
+        _historyCache.Clear();
+
+        string ticker = CurrentTicker;
+        StatusText.Text = $"Загружаю живую 1m базу {ticker} (5 дней)...";
 
         try
         {
-            int count = await _feed.InitializeAsync(
-                CurrentTicker,
-                daysBack: _currentTf.DaysBack,
-                interval: _currentTf.BaseMoexInterval);
+            // Живой поток ВСЕГДА на 1m — он питает все таймфреймы и индикатор сессии
+            int count = await _feed.InitializeAsync(ticker, daysBack: 5, interval: 1);
 
-            // Добавка Статус сессии
+            if (_currentTf.HistoryMoexInterval is not null)
+            {
+                StatusText.Text = $"Догружаю историю {ticker} ({_currentTf.Code}, {_currentTf.HistoryDaysBack} дн.)...";
+                await EnsureHistoryLoadedAsync(ticker, _currentTf);
+            }
+
             await RefreshTradingStatusIfDueAsync(force: true);
-
-            _loadedMoexInterval = _currentTf.BaseMoexInterval;
             ApplyViewToChart(resetView: true);
-            UpdateStatus($"База загружена ({count} свечей, интервал MOEX={_currentTf.BaseMoexInterval})");
+            UpdateStatus($"База 1m: {count} св.");
 
-            if (ChkAuto.IsChecked == true && count > 0)
+            if (IsAutoEnabled && count > 0)
                 _timer.Start();
         }
         catch (Exception ex)
@@ -92,20 +135,45 @@ public partial class MainWindow : Window
         }
     }
 
+    // Добавлен метод после фикса таймфреймов 1ч, 1д
+    private async Task EnsureHistoryLoadedAsync(string ticker, TimeframeSpec tf)
+    {
+        if (tf.HistoryMoexInterval is not int histInterval)
+            return;
+
+        if (_historyCache.ContainsKey(tf.Code))
+            return;
+
+        DateTime from = DateTime.Today.AddDays(-tf.HistoryDaysBack);
+        var raw = await _provider.GetCandlesAsync(ticker, from, null, histInterval);
+
+        // Защита от гонки, если тикер переключили во время сетевого запроса
+        if (ticker != CurrentTicker)
+            return;
+
+        IReadOnlyList<Candle> prepared = (!tf.IsDailyOrHigher && tf.ResampleMinutes > histInterval)
+            ? TimeframeResampler.Resample(raw, tf.ResampleMinutes)
+            : raw;
+
+        _historyCache[tf.Code] = prepared;
+    }
+
     private async Task RefreshTailAsync()
     {
         try
         {
+            if (_feed.Ticker != CurrentTicker)
+                return;
+
             var res = await _feed.UpdateTailAsync(overlap: 2);
             if (res is null) return;
+
+            await RefreshTradingStatusIfDueAsync();
 
             if (res.AddedCount > 0 || res.UpdatedLast)
                 ApplyViewToChart(resetView: false);
 
-            // Добавка - Статус сессии рынка
-            await RefreshTradingStatusIfDueAsync();
-
-            UpdateStatus($"Хвост: {res.ElapsedMs} мс | пришло: {res.FetchedCount} | новых: {res.AddedCount}");
+            UpdateStatus($"Хвост 1m: {res.ElapsedMs} мс | пришло: {res.FetchedCount} | новых: {res.AddedCount}");
         }
         catch (Exception ex)
         {
@@ -115,22 +183,28 @@ public partial class MainWindow : Window
 
     private void ApplyViewToChart(bool resetView)
     {
-        var baseCandles = _feed.Candles;
-        if (baseCandles.Count == 0)
+        var live1m = _feed.Candles;
+        if (live1m.Count == 0)
         {
+            ChartControl.Ticker = CurrentTicker;
             ChartControl.SetCandles(Array.Empty<Candle>(), _useHeikinAshi, resetView, _currentTf.IsDailyOrHigher);
             return;
         }
 
-        var tfCandles = _currentTf.ResampleMinutes > 1
-            ? TimeframeResampler.Resample(baseCandles, _currentTf.ResampleMinutes)
-            : baseCandles;
+        // 1. Всегда собираем живой хвост выбранного ТФ из 1m-потока
+        IReadOnlyList<Candle> liveTf = _currentTf.ResampleMinutes > 1
+            ? TimeframeResampler.Resample(live1m, _currentTf.ResampleMinutes)
+            : live1m;
+
+        // 2. Для старших ТФ (1Ч, 1Д) склеиваем глубокую историю с живым хвостом
+        IReadOnlyList<Candle> tfCandles = (_currentTf.HistoryMoexInterval is not null &&
+                                           _historyCache.TryGetValue(_currentTf.Code, out var history))
+            ? TimeframeResampler.MergeHistoryWithLive(history, liveTf)
+            : liveTf;
 
         var displayCandles = _useHeikinAshi ? HeikinAshiConverter.Convert(tfCandles) : tfCandles;
 
-        // Косметическая добавка перед ChartControl
         ChartControl.Ticker = CurrentTicker;
-
         ChartControl.SetCandles(displayCandles, _useHeikinAshi, resetView, _currentTf.IsDailyOrHigher);
     }
 
@@ -172,15 +246,31 @@ public partial class MainWindow : Window
             _currentTf = newTf;
             if (!_isReady) return;
 
-            // Если базовый интервал MOEX тот же (например 3M -> 2M -> 15M), сеть вообще не трогаем
-            if (_loadedMoexInterval == _currentTf.BaseMoexInterval && _feed.Candles.Count > 0)
+            if (_currentTf.HistoryMoexInterval is not null && !_historyCache.ContainsKey(_currentTf.Code))
             {
+                string ticker = CurrentTicker;
+                StatusText.Text = $"Догружаю историю {ticker} ({_currentTf.Code}, {_currentTf.HistoryDaysBack} дн.)...";
+                try
+                {
+                    await EnsureHistoryLoadedAsync(ticker, _currentTf);
+                }
+                catch (Exception ex)
+                {
+                    StatusText.Text = $"Ошибка истории {_currentTf.Code}: {ex.Message}";
+                    return;
+                }
+
+                // Если пока качали историю, пользователь успел переключиться — не перебиваем экран
+                if (ticker != CurrentTicker || _currentTf.Code != code)
+                    return;
+
                 ApplyViewToChart(resetView: true);
-                UpdateStatus("Таймфрейм переключён локально");
+                UpdateStatus($"История {_currentTf.Code} загружена и склеена с 1m");
             }
             else
             {
-                await LoadBaseAsync();
+                ApplyViewToChart(resetView: true);
+                UpdateStatus("Таймфрейм переключён локально");
             }
         }
     }
@@ -261,7 +351,7 @@ public partial class MainWindow : Window
         }
 
         DateTime? lastEnd = _feed.Candles.Count > 0 ? _feed.Candles[^1].End : null;
-        var info = MarketSessionEvaluator.Evaluate(_lastTradingStatus, lastEnd, _currentTf.IsDailyOrHigher);
+        var info = MarketSessionEvaluator.Evaluate(_lastTradingStatus, lastEnd);
 
         SessionIndicator.Fill = info.Status switch
         {
@@ -272,13 +362,78 @@ public partial class MainWindow : Window
 
         SessionHitBox.ToolTip = info.Tooltip;
 
+        //var desiredInterval = info.Status == MarketSessionStatus.Closed
+        //    ? TimeSpan.FromSeconds(30)
+        //    : TimeSpan.FromSeconds(3); // Здесь дополнительно редактируетса время автообновления хвоста графика
+
+        //if (_timer.Interval != desiredInterval)
+        //    _timer.Interval = desiredInterval;
+
+        double activeSeconds = _isBurnMode ? _burnRefreshSeconds : _normalRefreshSeconds;
         var desiredInterval = info.Status == MarketSessionStatus.Closed
             ? TimeSpan.FromSeconds(30)
-            // Верхняя пинг (30 секунд дефолт) если долго нету ответа. Оптимизация пинга.
-            // Дополнительная настройка, таймер принудительно чекает каждые (3 секунды - дефолт) когда сессия активна
-            : TimeSpan.FromSeconds(3);
+            : TimeSpan.FromSeconds(Math.Max(0.25, activeSeconds));
 
         if (_timer.Interval != desiredInterval)
             _timer.Interval = desiredInterval;
+    }
+
+    // Методы для Burn
+    private void OnBurnModeToggled(bool enabled)
+    {
+        _isBurnMode = enabled;
+        UpdateAutoCheckBoxLabel();
+        UpdateSessionIndicator();
+    }
+
+    private void UpdateAutoCheckBoxLabel()
+    {
+        ChkAuto.Content = _isBurnMode
+            ? $"Авто ({_burnRefreshSeconds:0.##} сек 🔥)"
+            : $"Авто ({_normalRefreshSeconds:0.##} сек)";
+    }
+
+    // Методы после добавления окна настроек терминала
+    private void ApplySettings(AppSettings s)
+    {
+        ChartControl.EnablePanInertia = s.EnablePanInertia;
+        ChartControl.InertiaFriction = s.GetInertiaFriction();
+
+        // Частицы снежинки
+        ParticleOverlay.Intensity = s.ParticleIntensity;
+        ParticleOverlay.IsEffectEnabled = s.EnableParticles;
+
+        ParticleOverlay.Intensity = s.ParticleIntensity;
+        ParticleOverlay.SpeedMultiplier = s.ParticleSpeedMultiplier;
+        ParticleOverlay.IsEffectEnabled = s.EnableParticles;
+        // -
+
+        _normalRefreshSeconds = s.NormalRefreshSeconds;
+        UpdateAutoCheckBoxLabel();
+
+        if (_isReady)
+            UpdateSessionIndicator();
+    }
+
+    private void Window_PreviewKeyDown(object sender, KeyEventArgs e)
+    {
+        if (e.Key == Key.Escape && SettingsOverlay.IsOpen)
+        {
+            SettingsOverlay.Close();
+            e.Handled = true;
+        }
+    }
+
+    // Метод компенсации отступа окна Window Chrome
+    private void UpdateWindowChromeState()
+    {
+        bool isMax = WindowState == WindowState.Maximized;
+        ChromeRootGrid.Margin = isMax ? new Thickness(7) : new Thickness(0);
+
+        // Частицы снежинки
+        ParticleOverlay.SetPaused(WindowState == WindowState.Minimized);
+        // -
+
+        TitleBar.UpdateWindowState(WindowState);
     }
 }

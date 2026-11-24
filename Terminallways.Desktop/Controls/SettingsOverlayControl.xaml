@@ -1,0 +1,384 @@
+﻿<UserControl x:Class="Terminallways.Desktop.Controls.SettingsOverlayControl"
+             xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <UserControl.Resources>
+        <!-- Вкладки разделов слева -->
+        <Style x:Key="SettingsTabStyle" TargetType="RadioButton">
+            <Setter Property="Foreground" Value="#A3B1C6"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="FontSize" Value="13"/>
+            <Setter Property="Padding" Value="12,9"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="RadioButton">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                CornerRadius="5"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#40263145"/>
+                                <Setter Property="Foreground" Value="#F1F5F9"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#881E3A5F"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                                <Setter Property="FontWeight" Value="SemiBold"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Плоская кнопка (закрыть / сброс) -->
+        <Style x:Key="FlatActionButtonStyle" TargetType="Button">
+            <Setter Property="Background" Value="#55252D3F"/>
+            <Setter Property="Foreground" Value="#D8E1EE"/>
+            <Setter Property="BorderBrush" Value="#40506B"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Padding" Value="10,4"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                                Background="{TemplateBinding Background}"
+                                BorderBrush="{TemplateBinding BorderBrush}"
+                                BorderThickness="{TemplateBinding BorderThickness}"
+                                CornerRadius="4"
+                                Padding="{TemplateBinding Padding}">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#9934425E"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Невидимый маркер для ресайза по краям -->
+        <Style x:Key="InvisibleThumbStyle" TargetType="Thumb">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Thumb">
+                        <Border Background="Transparent"/>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+    </UserControl.Resources>
+
+    <!-- Background="{x:Null}" пропускает клики мимо окна прямо на график -->
+    <Canvas x:Name="OverlayHost" Background="{x:Null}" SizeChanged="OverlayHost_SizeChanged">
+        <!-- Внутреннее окно: 50% прозрачность фона (#80...) -->
+        <Border x:Name="WindowFrame"
+                Background="#80161B26"
+                BorderBrush="#664A5E82"
+                BorderThickness="1"
+                CornerRadius="8"
+                ClipToBounds="True">
+            <Grid>
+                <Grid.RowDefinitions>
+                    <RowDefinition Height="38"/>
+                    <RowDefinition Height="*"/>
+                    <RowDefinition Height="40"/>
+                </Grid.RowDefinitions>
+
+                <!-- 1. Шапка для перетаскивания -->
+                <Border x:Name="HeaderBar"
+                        Grid.Row="0"
+                        Background="#B81B2232"
+                        BorderBrush="#44394966"
+                        BorderThickness="0,0,0,1"
+                        Cursor="SizeAll"
+                        MouseLeftButtonDown="HeaderBar_MouseLeftButtonDown"
+                        MouseMove="HeaderBar_MouseMove"
+                        MouseLeftButtonUp="HeaderBar_MouseLeftButtonUp">
+                    <Grid Margin="14,0,8,0">
+                        <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                            <TextBlock Text="Настройки терминала"
+                                       Foreground="#F1F5F9"
+                                       FontSize="13.5"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"/>
+                            <TextBlock Text="  •  перетащите за шапку или потяните за край"
+                                       Foreground="#7C8CA6"
+                                       FontSize="11"
+                                       VerticalAlignment="Center"/>
+                        </StackPanel>
+
+                        <Button Content="✕"
+                                Width="28" Height="24"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Padding="0"
+                                Style="{StaticResource FlatActionButtonStyle}"
+                                ToolTip="Закрыть (Esc)"
+                                Click="BtnClose_Click"/>
+                    </Grid>
+                </Border>
+
+                <!-- 2. Основное содержимое: разделы слева + прокручиваемый список справа -->
+                <Grid Grid.Row="1">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="175"/>
+                        <ColumnDefinition Width="*"/>
+                    </Grid.ColumnDefinitions>
+
+                    <!-- Левая панель разделов -->
+                    <Border Grid.Column="0"
+                            Background="#5510141E"
+                            BorderBrush="#44394966"
+                            BorderThickness="0,0,1,0"
+                            Padding="8,10">
+                        <StackPanel>
+                            <RadioButton x:Name="TabAll" Content="Все настройки"
+                                         GroupName="SettingsTabs" IsChecked="True"
+                                         Style="{StaticResource SettingsTabStyle}"
+                                         Checked="Tab_Checked"/>
+                            <RadioButton x:Name="TabChart" Content="График и физика"
+                                         GroupName="SettingsTabs"
+                                         Style="{StaticResource SettingsTabStyle}"
+                                         Checked="Tab_Checked"/>
+                            <RadioButton x:Name="TabFeed" Content="Обновление данных"
+                                         GroupName="SettingsTabs"
+                                         Style="{StaticResource SettingsTabStyle}"
+                                         Checked="Tab_Checked"/>
+                            <RadioButton x:Name="TabVisual" Content="Оформление"
+                                         GroupName="SettingsTabs"
+                                         Style="{StaticResource SettingsTabStyle}"
+                                         Checked="Tab_Checked"/>
+                        </StackPanel>
+                    </Border>
+
+                    <!-- Правая прокручиваемая область (ScrollViewer) -->
+                    <ScrollViewer Grid.Column="1"
+                                  VerticalScrollBarVisibility="Auto"
+                                  HorizontalScrollBarVisibility="Disabled"
+                                  Padding="18,14">
+                        <StackPanel>
+                            <!-- Раздел: График и физика -->
+                            <Border x:Name="SectionChart"
+                                    Background="#66121722"
+                                    BorderBrush="#334B5D7E"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="14,12"
+                                    Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="График и физика"
+                                               Foreground="#60A5FA"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Margin="0,0,0,10"/>
+
+                                    <!-- Вкл/выкл инерции -->
+                                    <CheckBox x:Name="ChkInertia"
+                                              Content="Плавное инерционное передвижение графика"
+                                              Foreground="#E2E8F0"
+                                              FontSize="13"
+                                              Click="SettingControl_Changed"/>
+                                    <TextBlock Text="При резком броске мышью график плавно докатывается; при спокойном перетаскивании остаётся точным."
+                                               Foreground="#8A99B0"
+                                               FontSize="11.5"
+                                               TextWrapping="Wrap"
+                                               Margin="22,3,0,12"/>
+
+                                    <!-- Интенсивность инерции -->
+                                    <DockPanel Margin="0,0,0,4">
+                                        <TextBlock Text="Интенсивность инерции"
+                                                   Foreground="#E2E8F0"
+                                                   FontSize="13"/>
+                                        <TextBlock x:Name="TxtInertiaValue"
+                                                   Text="6.0"
+                                                   Foreground="#93C5FD"
+                                                   FontFamily="Consolas"
+                                                   FontSize="13"
+                                                   HorizontalAlignment="Right"/>
+                                    </DockPanel>
+                                    <Slider x:Name="SliderInertia"
+                                            Minimum="1" Maximum="10"
+                                            TickFrequency="0.5"
+                                            IsSnapToTickEnabled="True"
+                                            Value="6"
+                                            ValueChanged="Slider_ValueChanged"/>
+                                    <DockPanel Margin="0,2,0,0">
+                                        <TextBlock Text="1 — короткое торможение" Foreground="#7C8CA6" FontSize="11"/>
+                                        <TextBlock Text="10 — мягкий длинный накат" Foreground="#7C8CA6" FontSize="11" HorizontalAlignment="Right"/>
+                                    </DockPanel>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Раздел: Обновление данных -->
+                            <Border x:Name="SectionFeed"
+                                    Background="#66121722"
+                                    BorderBrush="#334B5D7E"
+                                    BorderThickness="1"
+                                    CornerRadius="6"
+                                    Padding="14,12"
+                                    Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Обновление данных"
+                                               Foreground="#60A5FA"
+                                               FontSize="13"
+                                               FontWeight="SemiBold"
+                                               Margin="0,0,0,10"/>
+
+                                    <DockPanel Margin="0,0,0,4">
+                                        <TextBlock Text="Интервал автообновления по умолчанию"
+                                                   Foreground="#E2E8F0"
+                                                   FontSize="13"/>
+                                        <TextBlock x:Name="TxtRefreshValue"
+                                                   Text="3.0 сек"
+                                                   Foreground="#93C5FD"
+                                                   FontFamily="Consolas"
+                                                   FontSize="13"
+                                                   HorizontalAlignment="Right"/>
+                                    </DockPanel>
+                                    <Slider x:Name="SliderRefresh"
+                                            Minimum="1" Maximum="30"
+                                            TickFrequency="0.5"
+                                            IsSnapToTickEnabled="True"
+                                            Value="3"
+                                            ValueChanged="Slider_ValueChanged"/>
+                                    <TextBlock Text="Влияет только на обычный режим (Burn Overspeed всегда держит 1 сек, а спящая сессия — 30 сек)."
+                                               Foreground="#8A99B0"
+                                               FontSize="11.5"
+                                               TextWrapping="Wrap"
+                                               Margin="0,4,0,0"/>
+                                </StackPanel>
+                            </Border>
+
+                            <!-- Раздел: Оформление / Эффекты -->
+                            <Border x:Name="SectionVisual"
+                                Background="#66121722"
+                                BorderBrush="#334B5D7E"
+                                BorderThickness="1"
+                                CornerRadius="6"
+                                Padding="14,12"
+                                Margin="0,0,0,12">
+                                <StackPanel>
+                                    <TextBlock Text="Оформление и эффекты"
+                                       Foreground="#60A5FA"
+                                       FontSize="13"
+                                       FontWeight="SemiBold"
+                                       Margin="0,0,0,10"/>
+
+                                        <CheckBox x:Name="ChkParticles"
+                                              Content="Падающие частицы поверх окна (снежинки PNG)"
+                                              Foreground="#E2E8F0"
+                                              FontSize="13"
+                                              Click="SettingControl_Changed"/>
+                                                                <TextBlock Text="Загружает все .png из Resources\Textures\Particles\ случайным образом. При выключении не тратит ресурсы."
+                                               Foreground="#8A99B0"
+                                               FontSize="11.5"
+                                               TextWrapping="Wrap"
+                                               Margin="22,3,0,12"/>
+
+                                            <DockPanel Margin="0,0,0,4">
+                                            <TextBlock Text="Интенсивность спавна частиц"
+                           Foreground="#E2E8F0"
+                           FontSize="13"/>
+                                            <TextBlock x:Name="TxtParticlesValue"
+                           Text="5.0"
+                           Foreground="#93C5FD"
+                           FontFamily="Consolas"
+                           FontSize="13"
+                           HorizontalAlignment="Right"/>
+                                        </DockPanel>
+                                        <Slider x:Name="SliderParticles"
+                    Minimum="1" Maximum="10"
+                    TickFrequency="0.5"
+                    IsSnapToTickEnabled="True"
+                    Value="5"
+                    ValueChanged="Slider_ValueChanged"/>
+
+                                    <DockPanel Margin="0,12,0,4">
+                                        <TextBlock Text="Скорость падения частиц"
+               Foreground="#E2E8F0"
+               FontSize="13"/>
+                                        <TextBlock x:Name="TxtParticleSpeedValue"
+               Text="1.0×"
+               Foreground="#93C5FD"
+               FontFamily="Consolas"
+               FontSize="13"
+               HorizontalAlignment="Right"/>
+                                    </DockPanel>
+                                    <Slider x:Name="SliderParticleSpeed"
+        Minimum="0.3" Maximum="2.5"
+        TickFrequency="0.1"
+        IsSnapToTickEnabled="True"
+        Value="1.0"
+        ValueChanged="Slider_ValueChanged"/>
+                                    <DockPanel Margin="0,2,0,0">
+                                        <TextBlock Text="0.3× — медленный снег" Foreground="#7C8CA6" FontSize="11"/>
+                                        <TextBlock Text="2.5× — метель" Foreground="#7C8CA6" FontSize="11" HorizontalAlignment="Right"/>
+                                    </DockPanel>
+                                </StackPanel>
+                            </Border>
+
+                        </StackPanel>
+                    </ScrollViewer>
+                </Grid>
+
+                <!-- 3. Нижняя панель -->
+                <Border Grid.Row="2"
+                        Background="#99141925"
+                        BorderBrush="#44394966"
+                        BorderThickness="0,1,0,0"
+                        Padding="14,0">
+                    <Grid>
+                        <TextBlock Text="Изменения применяются сразу и сохраняются в settings.json"
+                                   Foreground="#7C8CA6"
+                                   FontSize="11.5"
+                                   VerticalAlignment="Center"/>
+                        <Button Content="Сбросить по умолчанию"
+                                HorizontalAlignment="Right"
+                                VerticalAlignment="Center"
+                                Margin="0,0,12,0"
+                                Style="{StaticResource FlatActionButtonStyle}"
+                                Click="BtnResetDefaults_Click"/>
+                    </Grid>
+                </Border>
+
+                <!-- Маркеры изменения размера (правый край, нижний край, правый нижний угол) -->
+                <Thumb Grid.Row="0" Grid.RowSpan="3"
+                       Width="6" HorizontalAlignment="Right"
+                       Cursor="SizeWE"
+                       Style="{StaticResource InvisibleThumbStyle}"
+                       DragDelta="ResizeRight_DragDelta"/>
+
+                <Thumb Grid.Row="0" Grid.RowSpan="3"
+                       Height="6" VerticalAlignment="Bottom"
+                       Cursor="SizeNS"
+                       Style="{StaticResource InvisibleThumbStyle}"
+                       DragDelta="ResizeBottom_DragDelta"/>
+
+                <Thumb Grid.Row="0" Grid.RowSpan="3"
+                       Width="16" Height="16"
+                       HorizontalAlignment="Right" VerticalAlignment="Bottom"
+                       Cursor="SizeNWSE"
+                       DragDelta="ResizeCorner_DragDelta">
+                    <Thumb.Template>
+                        <ControlTemplate TargetType="Thumb">
+                            <Grid Background="Transparent">
+                                <Path Data="M 13,5 L 5,13 M 13,9 L 9,13"
+                                      Stroke="#8894A3B8" StrokeThickness="1.3"
+                                      StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                            </Grid>
+                        </ControlTemplate>
+                    </Thumb.Template>
+                </Thumb>
+            </Grid>
+        </Border>
+    </Canvas>
+</UserControl>

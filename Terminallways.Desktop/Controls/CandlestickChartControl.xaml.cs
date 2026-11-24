@@ -36,6 +36,13 @@ public partial class CandlestickChartControl : UserControl
     // Добавка AutoScale
     public event Action<bool>? AutoScaleChanged;
 
+    // Добавка Burn
+    public event Action<bool>? BurnModeToggled;
+
+    // Добавка настроек терминала
+    public event Action? SettingsRequested;
+
+
     // Быстрый переключатель косметики: поставь false, чтобы скрыть бирку тикера
     public bool ShowTickerBadge { get; set; } = true;
     public string Ticker { get; set; } = string.Empty;
@@ -64,7 +71,8 @@ public partial class CandlestickChartControl : UserControl
 
     // --- Настройки инерции перемещения ---
     public bool EnablePanInertia { get; set; } = true;
-    private const double InertiaFriction = 2.0; // Чем выше число, тем короче и жёстче торможение (6..12)
+    //private const double InertiaFriction = 2.0; // Чем выше число, тем короче и жёстче торможение (6..12)
+    public double InertiaFriction { get; set; } = 2.0;
 
     private readonly Stopwatch _inertiaSw = Stopwatch.StartNew();
     private double _velX;
@@ -106,6 +114,7 @@ public partial class CandlestickChartControl : UserControl
     private readonly DispatcherTimer _toolbarHideTimer;
     private bool _isToolbarVisible;
 
+    // Конструктор CandlestickChartControl()
     public CandlestickChartControl()
     {
         InitializeComponent();
@@ -148,6 +157,9 @@ public partial class CandlestickChartControl : UserControl
             UpdateBarInfo(force: true);
         };
 
+        // Добавка Burn
+        ToolBar.BurnModeToggled += enabled => BurnModeToggled?.Invoke(enabled);
+
         _toolbarHideTimer = new DispatcherTimer { Interval = TimeSpan.FromMilliseconds(140) };
         _toolbarHideTimer.Tick += (_, _) =>
         {
@@ -155,6 +167,9 @@ public partial class CandlestickChartControl : UserControl
             if (!ToolbarTriggerZone.IsMouseOver && !ToolBar.IsMouseOver)
                 SetToolbarVisible(false);
         };
+
+        // Добавка настроек терминала
+        ToolBar.SettingsClicked += () => SettingsRequested?.Invoke();
     }
 
     //public void SetCandles(IReadOnlyList<Candle> candles, bool isHeikinAshi, bool resetView = false)

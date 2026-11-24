@@ -10,16 +10,45 @@ using System.Threading;
 using System.Threading.Tasks;
 using Terminallways.Core.Models;
 
+using System.Net.Security;
+
 namespace Terminallways.Core.Data
 {
     public class MoexIssProvider : IMarketDataProvider
     {
         private const int MoexPageSize = 500;
 
-        private static readonly HttpClient Http = new()
+        //private static readonly HttpClient Http = new()
+        //{
+        //    Timeout = TimeSpan.FromSeconds(10)
+        //};
+
+        // Фикс в обход сертификатов
+
+        private static readonly HttpClient Http = CreateHttpClient();
+
+        private static HttpClient CreateHttpClient()
         {
-            Timeout = TimeSpan.FromSeconds(10)
-        };
+            var handler = new HttpClientHandler
+            {
+                ServerCertificateCustomValidationCallback = (req, cert, chain, errors) =>
+                {
+                    if (errors == SslPolicyErrors.None)
+                        return true;
+
+                    // Разрешаем ошибку цепочки/корня (например, НУЦ Минцифры) строго для публичного iss.moex.com
+                    return req.RequestUri?.Host.Equals("iss.moex.com", StringComparison.OrdinalIgnoreCase) == true
+                           && errors == SslPolicyErrors.RemoteCertificateChainErrors;
+                }
+            };
+
+            return new HttpClient(handler)
+            {
+                Timeout = TimeSpan.FromSeconds(15)
+            };
+        }
+
+        // 
 
         public string ProviderName => "MOEX ISS (TQBR)";
 

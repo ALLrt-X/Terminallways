@@ -3,92 +3,118 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:controls="clr-namespace:Terminallways.Desktop.Controls"
         Title="TERMINALLWAYS" Height="740" Width="1280"
-        Background="#0F1117" WindowStartupLocation="CenterScreen">
-    <Grid Margin="10">
+        MinWidth="760" MinHeight="460"
+        Background="#0F1117" WindowStartupLocation="CenterScreen"
+        PreviewKeyDown="Window_PreviewKeyDown">
+
+    <!-- Безрамочный режим через нативный WindowChrome (Win 10/11) -->
+    <WindowChrome.WindowChrome>
+        <WindowChrome CaptionHeight="32"
+                      ResizeBorderThickness="6"
+                      GlassFrameThickness="-1"
+                      CornerRadius="0"
+                      UseAeroCaptionButtons="False"/>
+    </WindowChrome.WindowChrome>
+
+    <!-- Внешняя сетка: Row 0 = кастомная шапка, Row 1 = весь остальной интерфейс -->
+    <Grid x:Name="ChromeRootGrid" Background="#0F1117">
         <Grid.RowDefinitions>
-            <RowDefinition Height="Auto"/>
+            <RowDefinition Height="32"/>
             <RowDefinition Height="*"/>
-            <RowDefinition Height="Auto"/>
         </Grid.RowDefinitions>
 
-        <!-- Верхняя панель управления -->
-        <Border Grid.Row="0" Background="#181C26" Padding="10,8" Margin="0,0,0,8" CornerRadius="4">
-            <StackPanel Orientation="Horizontal">
-                <!-- Тикер -->
-                <ComboBox x:Name="TickerBox" Width="85" SelectedIndex="0" Margin="0,0,12,0"
-                          VerticalContentAlignment="Center" SelectionChanged="TickerBox_SelectionChanged">
-                    <ComboBoxItem Content="SMLT"/>
-                    <ComboBoxItem Content="CBOM"/>
-                    <ComboBoxItem Content="SBER"/>
-                </ComboBox>
+        <!-- Кастомная шапка окна -->
+        <controls:WindowTitleBarControl x:Name="TitleBar" Grid.Row="0"/>
 
-                <!-- Переключатели таймфрейма -->
-                <!--
-                <RadioButton x:Name="RbTf1"  Content="1M"  Tag="1"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="42" Margin="0,0,4,0" Checked="Tf_Checked"/>
-                <RadioButton x:Name="RbTf3"  Content="3M"  Tag="3"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="42" Margin="0,0,4,0" IsChecked="True" Checked="Tf_Checked"/>
-                <RadioButton x:Name="RbTf5"  Content="5M"  Tag="5"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="42" Margin="0,0,4,0" Checked="Tf_Checked"/>
-                <RadioButton x:Name="RbTf15" Content="15M" Tag="15" GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="46" Margin="0,0,14,0" Checked="Tf_Checked"/>
-                -->
-                
-                <!-- Переключатели таймфрейма - Добавка для TimeframeSpec.cs -->
-                <RadioButton Content="1M"  Tag="1M"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" Checked="Tf_Checked"/>
-                <RadioButton Content="2M"  Tag="2M"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" Checked="Tf_Checked"/>
-                <RadioButton Content="3M"  Tag="3M"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" IsChecked="True" Checked="Tf_Checked"/>
-                <RadioButton Content="5M"  Tag="5M"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" Checked="Tf_Checked"/>
-                <RadioButton Content="15M" Tag="15M" GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="42" Margin="0,0,4,0" Checked="Tf_Checked"/>
-                <RadioButton Content="30M" Tag="30M" GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="42" Margin="0,0,4,0" Checked="Tf_Checked"/>
-                <RadioButton Content="1Ч"  Tag="1H"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" Checked="Tf_Checked"/>
-                <RadioButton Content="1Д"  Tag="1D"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,14,0" Checked="Tf_Checked"/>
+        <!-- Твоя основная рабочая сетка (внутри ничего не сдвинулось) -->
+        <Grid x:Name="RootGrid" Grid.Row="1" Margin="10,6,10,10">
+            <Grid.RowDefinitions>
+                <RowDefinition Height="Auto"/>
+                <RowDefinition Height="*"/>
+                <RowDefinition Height="Auto"/>
+            </Grid.RowDefinitions>
 
-                <!-- Режим отображения свечей -->
-                <ComboBox x:Name="ChartModeBox" Width="150" SelectedIndex="1" Margin="0,0,12,0"
-                          VerticalContentAlignment="Center" SelectionChanged="ChartModeBox_SelectionChanged">
-                    <ComboBoxItem Content="Обычные свечи" Tag="RAW"/>
-                    <ComboBoxItem Content="Heikin Ashi" Tag="HA"/>
-                </ComboBox>
+            <!-- Верхняя панель управления -->
+            <Border Grid.Row="0" Background="#181C26" Padding="10,8" Margin="0,0,0,8" CornerRadius="4">
+                <StackPanel Orientation="Horizontal">
+                    <!-- Тикер -->
+                    <ComboBox x:Name="TickerBox" Width="85" SelectedIndex="0" Margin="0,0,12,0"
+                              VerticalContentAlignment="Center" SelectionChanged="TickerBox_SelectionChanged">
+                        <ComboBoxItem Content="SMLT"/>
+                        <ComboBoxItem Content="CBOM"/>
+                        <ComboBoxItem Content="SBER"/>
+                    </ComboBox>
 
-                <Button x:Name="BtnReload" Content="Обновить базу" Click="BtnReload_Click"
-                        Padding="12,5" Margin="0,0,8,0"
-                        Background="#1E3A5F" Foreground="White" BorderThickness="0"/>
+                    <!-- Переключатели таймфрейма -->
+                    <RadioButton Content="1M"  Tag="1M"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" Checked="Tf_Checked"/>
+                    <RadioButton Content="2M"  Tag="2M"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" Checked="Tf_Checked"/>
+                    <RadioButton Content="3M"  Tag="3M"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" IsChecked="True" Checked="Tf_Checked"/>
+                    <RadioButton Content="5M"  Tag="5M"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" Checked="Tf_Checked"/>
+                    <RadioButton Content="15M" Tag="15M" GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="42" Margin="0,0,4,0" Checked="Tf_Checked"/>
+                    <RadioButton Content="30M" Tag="30M" GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="42" Margin="0,0,4,0" Checked="Tf_Checked"/>
+                    <RadioButton Content="1Ч"  Tag="1H"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,4,0" Checked="Tf_Checked"/>
+                    <RadioButton Content="1Д"  Tag="1D"  GroupName="TF" Style="{StaticResource {x:Type ToggleButton}}" Width="38" Margin="0,0,14,0" Checked="Tf_Checked"/>
 
-                <Button Content="Сброс вида" Click="BtnResetView_Click"
-                        Padding="10,5" Margin="0,0,12,0"
-                        Background="#283044" Foreground="#D8E2F0" BorderThickness="0"/>
+                    <!-- Режим отображения свечей -->
+                    <ComboBox x:Name="ChartModeBox" Width="150" SelectedIndex="1" Margin="0,0,12,0"
+                              VerticalContentAlignment="Center" SelectionChanged="ChartModeBox_SelectionChanged">
+                        <ComboBoxItem Content="Обычные свечи" Tag="RAW"/>
+                        <ComboBoxItem Content="Heikin Ashi" Tag="HA"/>
+                    </ComboBox>
 
-                <ToggleButton x:Name="BtnAutoScale" Content="Авто Y" IsChecked="True"
-                        Click="BtnAutoScale_Click"
-                        Padding="10,5" Margin="0,0,12,0"/>
+                    <Button x:Name="BtnReload" Content="Обновить базу" Click="BtnReload_Click"
+                            Padding="12,5" Margin="0,0,8,0"
+                            Background="#1E3A5F" Foreground="White" BorderThickness="0"/>
 
-                <CheckBox x:Name="ChkAuto" Content="Авто (3 сек)" IsChecked="True"
-                          Foreground="#D8E2F0" VerticalAlignment="Center"
-                          Checked="ChkAuto_Changed" Unchecked="ChkAuto_Changed"/>
-            </StackPanel>
-        </Border>
+                    <Button Content="Сброс вида" Click="BtnResetView_Click"
+                            Padding="10,5" Margin="0,0,12,0"
+                            Background="#283044" Foreground="#D8E2F0" BorderThickness="0"/>
 
-        <!-- Основной график -->
-        <controls:CandlestickChartControl x:Name="ChartControl" Grid.Row="1"/>
+                    <ToggleButton x:Name="BtnAutoScale" Content="Авто Y" IsChecked="True"
+                                  Click="BtnAutoScale_Click"
+                                  Padding="10,5" Margin="0,0,12,0"/>
 
-        <!-- Компактная строка состояния внизу -->
-        <Border Grid.Row="2" Background="#181C26" Padding="10,6" Margin="0,8,0,0" CornerRadius="4">
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
-                <Border x:Name="SessionHitBox"
-                    Background="Transparent"
-                    Padding="6,4"
-                    Margin="-6,-4,4,-4"
-                    VerticalAlignment="Center"
-                    ToolTipService.InitialShowDelay="100"
-                    ToolTipService.ShowDuration="8000"
-                    ToolTip="Проверка состояния сессии...">
-                    <Ellipse x:Name="SessionIndicator"
-                         Width="9" Height="9"
-                         Fill="#38FFFFFF"/>
-                </Border>
+                    <CheckBox x:Name="ChkAuto" Content="Авто (3 сек)" IsChecked="True"
+                              Foreground="#D8E2F0" VerticalAlignment="Center"
+                              Checked="ChkAuto_Changed" Unchecked="ChkAuto_Changed"/>
+                </StackPanel>
+            </Border>
 
-                <TextBlock x:Name="StatusText"
-                   Text="Готов к загрузке..."
-                   Foreground="#9AA4B2" FontFamily="Consolas" FontSize="12"
-                   VerticalAlignment="Center"/>
-            </StackPanel>
-        </Border>
+            <!-- Основной график -->
+            <controls:CandlestickChartControl x:Name="ChartControl" Grid.Row="1"/>
+
+            <!-- Компактная строка состояния внизу -->
+            <Border Grid.Row="2" Background="#181C26" Padding="10,6" Margin="0,8,0,0" CornerRadius="4">
+                <StackPanel Orientation="Horizontal" VerticalAlignment="Center">
+                    <Border x:Name="SessionHitBox"
+                            Background="Transparent"
+                            Padding="6,4"
+                            Margin="-6,-4,4,-4"
+                            VerticalAlignment="Center"
+                            ToolTipService.InitialShowDelay="100"
+                            ToolTipService.ShowDuration="8000"
+                            ToolTip="Проверка состояния сессии...">
+                        <Ellipse x:Name="SessionIndicator"
+                                 Width="9" Height="9"
+                                 Fill="#38FFFFFF"/>
+                    </Border>
+
+                    <TextBlock x:Name="StatusText"
+                               Text="Готов к загрузке..."
+                               Foreground="#9AA4B2" FontFamily="Consolas" FontSize="12"
+                               VerticalAlignment="Center"/>
+                </StackPanel>
+            </Border>
+
+            <!-- Внутреннее плавающее окно настроек -->
+            <controls:SettingsOverlayControl x:Name="SettingsOverlay"
+                                             Grid.Row="0" Grid.RowSpan="3"
+                                             Panel.ZIndex="100"
+                                             Visibility="Collapsed"/>
+        </Grid>
+        <!-- Новогодний / модульный слой частиц (пропускает все клики) -->
+        <controls:ParticleOverlayControl x:Name="ParticleOverlay"
+                             Grid.Row="0" Grid.RowSpan="2"
+                             Panel.ZIndex="200"/>
     </Grid>
 </Window>

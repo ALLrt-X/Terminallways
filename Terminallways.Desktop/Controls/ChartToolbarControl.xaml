@@ -38,6 +38,72 @@
                 </Setter.Value>
             </Setter>
         </Style>
+
+        <!-- Стиль кнопки Burn Overspeed (оранжевая подсветка при включении) -->
+        <Style x:Key="BurnSquareButtonStyle" TargetType="ToggleButton" BasedOn="{StaticResource ToolSquareButtonStyle}">
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="ToggleButton">
+                        <Border x:Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#2A2220"/>
+                                <Setter Property="Foreground" Value="#FDBA74"/>
+                            </Trigger>
+                            <Trigger Property="IsChecked" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#3B1F14"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#F97316"/>
+                                <Setter Property="Foreground" Value="#FB923C"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
+        <!-- Стиль для кнопок действий (например, Настройки) -->
+        <Style x:Key="ToolActionButtonStyle" TargetType="Button">
+            <Setter Property="Width" Value="32"/>
+            <Setter Property="Height" Value="32"/>
+            <Setter Property="Margin" Value="0,2"/>
+            <Setter Property="Background" Value="Transparent"/>
+            <Setter Property="BorderBrush" Value="Transparent"/>
+            <Setter Property="BorderThickness" Value="1"/>
+            <Setter Property="Foreground" Value="#8E9BAE"/>
+            <Setter Property="Cursor" Value="Hand"/>
+            <Setter Property="Focusable" Value="False"/>
+            <Setter Property="Template">
+                <Setter.Value>
+                    <ControlTemplate TargetType="Button">
+                        <Border x:Name="Bd"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="4">
+                            <ContentPresenter HorizontalAlignment="Center" VerticalAlignment="Center"/>
+                        </Border>
+                        <ControlTemplate.Triggers>
+                            <Trigger Property="IsMouseOver" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#252D3F"/>
+                                <Setter Property="Foreground" Value="#E2E8F0"/>
+                            </Trigger>
+                            <Trigger Property="IsPressed" Value="True">
+                                <Setter TargetName="Bd" Property="Background" Value="#1E3A5F"/>
+                                <Setter TargetName="Bd" Property="BorderBrush" Value="#60A5FA"/>
+                                <Setter Property="Foreground" Value="#FFFFFF"/>
+                            </Trigger>
+                        </ControlTemplate.Triggers>
+                    </ControlTemplate>
+                </Setter.Value>
+            </Setter>
+        </Style>
+
     </UserControl.Resources>
 
     <Border Background="#E8181C26"
@@ -95,6 +161,43 @@
                           StrokeThickness="1.6" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
                 </Grid>
             </ToggleButton>
+
+            <Border Height="1" Background="#2B3345" Margin="3,4"/>
+
+            <!-- 4. Режим Burn Overspeed -->
+            <ToggleButton x:Name="BtnBurnOverspeed"
+              IsChecked="False"
+              Style="{StaticResource BurnSquareButtonStyle}"
+              ToolTip="Burn Overspeed (ускоренное обновление)"
+              Click="BtnBurnOverspeed_Click">
+                <Grid Width="18" Height="18">
+                    <Rectangle x:Name="IconBurnPng" Visibility="Collapsed"
+                   Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                    <Path x:Name="IconBurnFallback"
+              Data="M 9,1.5 C 9,1.5 14,5.5 14,10.5 C 14,13.8 11.8,16.5 9,16.5 C 6.2,16.5 4,13.8 4,10.5 C 4,8.2 5.4,6.2 6.4,5.2 C 6.3,6.8 7.1,7.8 7.8,8.1 C 7.5,5.4 9,1.5 9,1.5 Z"
+              Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=ToggleButton}}"/>
+                </Grid>
+            </ToggleButton>
+
+            <Border Height="1" Background="#2B3345" Margin="3,4"/>
+
+            <!-- 5. Окно настроек -->
+            <Button x:Name="BtnSettings"
+            Style="{StaticResource ToolActionButtonStyle}"
+            ToolTip="Настройки"
+            Click="BtnSettings_Click">
+                    <Grid Width="18" Height="18">
+                        <Rectangle x:Name="IconSettingsPng" Visibility="Collapsed"
+                       Fill="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"/>
+                        <Path x:Name="IconSettingsFallback"
+                  Data="M 9,6 A 3,3 0 1 0 9,12 A 3,3 0 1 0 9,6 M 9,1.5 L 9,3.5 M 9,14.5 L 9,16.5 M 1.5,9 L 3.5,9 M 14.5,9 L 16.5,9 M 3.7,3.7 L 5.1,5.1 M 12.9,12.9 L 14.3,14.3 M 14.3,3.7 L 12.9,5.1 M 5.1,12.9 L 3.7,14.3"
+                  Stroke="{Binding Foreground, RelativeSource={RelativeSource AncestorType=Button}}"
+                  StrokeThickness="1.5" StrokeStartLineCap="Round" StrokeEndLineCap="Round"/>
+                    </Grid>
+            </Button>
+
         </StackPanel>
     </Border>
+    
+    
 </UserControl>

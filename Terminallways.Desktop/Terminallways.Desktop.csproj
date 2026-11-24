@@ -16,4 +16,10 @@
 		<Content Include="Resources\Textures\Icons\*.png" CopyToOutputDirectory="PreserveNewest" />
 	</ItemGroup>
 
+	<ItemGroup>
+		<Content Include="Resources\Textures\Particles\**\*.png">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</Content>
+	</ItemGroup>
+
 </Project>

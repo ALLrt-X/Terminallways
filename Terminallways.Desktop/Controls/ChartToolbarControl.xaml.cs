@@ -12,6 +12,14 @@ public partial class ChartToolbarControl : UserControl
     public event Action<ChartToolMode>? ToolModeChanged;
     public event Action<bool>? BarInfoToggled;
 
+    // Добавка Burn Mode
+    public event Action<bool>? BurnModeToggled;
+    public bool IsBurnModeEnabled => BtnBurnOverspeed.IsChecked == true;
+    // --
+
+    // Добавка кнопка общих настроек терминала
+    public event Action? SettingsClicked;
+
     public ChartToolMode CurrentTool =>
         RbCrosshair.IsChecked == true ? ChartToolMode.Crosshair : ChartToolMode.Cursor;
 
@@ -28,6 +36,8 @@ public partial class ChartToolbarControl : UserControl
         TryApplyPngIcon(IconCursorPng, IconCursorFallback, "tool_cursor.png");
         TryApplyPngIcon(IconCrosshairPng, IconCrosshairFallback, "tool_crosshair.png");
         TryApplyPngIcon(IconBarInfoPng, IconBarInfoFallback, "tool_barinfo.png");
+        TryApplyPngIcon(IconBurnPng, IconBurnFallback, "tool_burn.png");
+        TryApplyPngIcon(IconSettingsPng, IconSettingsFallback, "tool_settings.png");
     }
 
     private static void TryApplyPngIcon(Rectangle pngTarget, UIElement fallback, string fileName)
@@ -68,5 +78,17 @@ public partial class ChartToolbarControl : UserControl
     private void BtnBarInfo_Click(object sender, RoutedEventArgs e)
     {
         BarInfoToggled?.Invoke(IsBarInfoEnabled);
+    }
+
+    // Burn обработчик
+    private void BtnBurnOverspeed_Click(object sender, RoutedEventArgs e)
+    {
+        BurnModeToggled?.Invoke(IsBurnModeEnabled);
+    }
+
+    // Настройки терминала, обработчик
+    private void BtnSettings_Click(object sender, RoutedEventArgs e)
+    {
+        SettingsClicked?.Invoke();
     }
 }

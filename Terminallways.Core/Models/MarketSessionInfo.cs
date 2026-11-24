@@ -15,10 +15,10 @@ public record MarketSessionInfo(
 
 public static class MarketSessionEvaluator
 {
-    public static MarketSessionInfo Evaluate(string? rawStatus, DateTime? lastCandleEnd, bool isDaily)
+    public static MarketSessionInfo Evaluate(string? rawStatus, DateTime? lastLive1mEnd)
     {
         string code = string.IsNullOrWhiteSpace(rawStatus) ? "?" : rawStatus.Trim().ToUpperInvariant();
-        TimeSpan? lag = lastCandleEnd.HasValue ? DateTime.Now - lastCandleEnd.Value : null;
+        TimeSpan? lag = lastLive1mEnd.HasValue ? DateTime.Now - lastLive1mEnd.Value : null;
 
         // 1. Официальные фазы аукциона или перерыва на MOEX
         if (code is "S" or "C" or "D" or "B" or "F")
@@ -35,18 +35,15 @@ public static class MarketSessionEvaluator
             return new(MarketSessionStatus.PauseOrAuction, code, $"{phase} (MOEX: {code})");
         }
 
-        // 2. Живые внутридневные свечи (обходит 15-минутный лаг marketdata на открытии)
-        if (!isDaily && lag.HasValue && lag.Value >= TimeSpan.FromSeconds(-30) && lag.Value <= TimeSpan.FromMinutes(3))
+        // 2. Живые 1m сделки (работает в любую сессию, обходит 15-минутный лаг marketdata)
+        if (lag.HasValue && lag.Value >= TimeSpan.FromSeconds(-30) && lag.Value <= TimeSpan.FromMinutes(3))
         {
             return new(MarketSessionStatus.Active, code, "Активная сессия (идут сделки)");
         }
 
-        // 3. Официально торги открыты ("T")
+        // 3. Официально торги открыты ("T"), но сделок нет > 3 минут (пауза / клиринг / закрытие)
         if (code == "T")
         {
-            if (isDaily)
-                return new(MarketSessionStatus.Active, code, "Активная сессия (MOEX: T)");
-
             if (lag.HasValue && lag.Value > TimeSpan.FromMinutes(3) && lag.Value <= TimeSpan.FromMinutes(16))
             {
                 return new(
